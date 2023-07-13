@@ -24,7 +24,6 @@ This is Django based chat web application but not like any other application. Th
 To deploy this project run in localhost
 
 1. Run the requirements.txt file and install all necessary packages. 
-<br>
 ```
 pip install requirements.txt
 ```
