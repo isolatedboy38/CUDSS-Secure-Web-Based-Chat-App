@@ -1,0 +1,584 @@
+{% extends 'chat/base.html' %} {% load static %} {% block header %}
+<style>
+    #user-list a.bg-dark {
+        background-color: rgb(107, 107, 107) !important;
+    }
+
+    .list-group-item {
+        cursor: pointer
+    }
+
+    .chat-bubble {
+        min-width: 40%;
+        max-width: 80%;
+        padding: 5px 15px;
+    }
+
+    #user-list a:hover * {
+        text-decoration: unset;
+    }
+
+    .chat-box {
+        overflow: auto;
+        max-width: 100%;
+    }
+</style>
+{% endblock %} {% block content %}
+<div class="container" style="height: 88%;">
+    <div class="card bg-dark h-100 border-light">
+        <div class="card-body h-100vh">
+            <div>
+                <!-- Message fowarding toggle button -->
+                <div class="custom-control custom-switch pb-2 d-flex flex-row-reverse">
+                    <input type="checkbox" class="custom-control-input" id="customSwitch1" checked>
+                    <label class="custom-control-label" for="customSwitch1">Message Forwarding Enable/Disable</label>
+                </div>
+
+
+
+            </div>
+            <div class="row h-100">
+                <div class="col-md-4 border-right h-100">
+                    <div class="list-group bg-dark" id='user-list'>
+                        {% for u in users %} {% if not u.id == 1 and not u.id == user.id %}
+                        <a class="list-group-item {% if u.id != chat_id %}bg-dark{% else %}bg-primary{% endif %} text-white"
+                            href="{% url 'chat-home' %}?u={{u.id}}">
+                            <div>
+                                <p>{{u.first_name}} {{u.last_name}} ({{u.username}})</p>
+                            </div>
+                        </a>
+                        {% endif %} {% endfor %}
+                    </div>
+                </div>
+                <div class="col-md-8 h-100">
+                    {% if not chat_id > 0 %}
+                    <div class="h-100 d-flex flex-column justify-content-center align-items-center">
+                        <h3>Start Chat now</h3>
+                        <p><small class="text-muted">Please select a person to chat with.</small></p>
+                    </div>
+                    {% else%}
+                    <div id="chat-box-field" class="h-100">
+                        <div class="chat-box" style="height:80%">
+                            {% for chat in chats %} {% if chat.user_from == user %}
+                            <div class="p-2 w-100 d-flex justify-content-end">
+                                
+                                {%if chat.can_forward == True%}
+                                <button class="btn btn-secondary forward-btn" data-toggle="modal"
+                                    data-target="#forwardModal"
+                                    onclick="setChatIdToInputTag('{{ chat.id }}')" style="height:50px;">Forward</button>
+                                    &nbsp;
+                                {% endif %}
+                                
+                                
+                                <button class="btn btn-secondary forward-btn" data-toggle="modal"
+                                    data-target="#ssforwardModal"
+                                    onclick="setChatIdToInputTag('{{ chat.id }}')" style="height:50px;">Manage</button>
+
+                                <div class=" chat-bubble  ml-2 mb-2 bg-primary text-light rounded"
+                                    data-id="{{chat.id}}">
+
+                                    <!-- Hidden input field to store the chat ID -->
+                                    <input type="hidden" id="chat-id-input-new">
+                                    <input type="hidden" id="pdf-url">
+
+                                    <p>{{chat.message}}</p>
+                                    {% if chat.image %}
+                                    <img data-enlargable src="{% static chat.image %}" alt="Image" height=100
+                                        width=100 />
+                                    {% endif %}
+
+                                    {% if chat.pdf_file %}
+                                    <div id="pdf-container">
+                                        <div class="embed-responsive embed-responsive-4by3"
+                                            onclick="setPdfUrl('{{ chat.pdf_file}}')">
+                                            <iframe class="embed-responsive-item" src="{% static chat.pdf_file %}"
+                                                style="pointer-events: none;"></iframe>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+
+                                    <div class="d-flex justify-content-between"><small>You</small>
+                                        <small>{{chat.date_created|date:"M-d-Y H:i"}}</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {% comment %} Model {% endcomment %}
+                            <!-- Forward Modal -->
+                            <div class="modal fade" id="forwardModal" tabindex="-1" role="dialog"
+                                aria-labelledby="forwardModalLabel" aria-hidden="true">
+                                <div class="modal-dialog" role="document">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="forwardModalLabel" style="color:black;">Forward
+                                                Message</h5>
+                                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                                <span aria-hidden="true">&times;</span>
+                                            </button>
+                                        </div>
+                                        <div class="modal-body" style="color: black;">
+                                            <form id="forward-form">
+                                                {% csrf_token %}
+
+                                                <label>will you allow to forward further?</label>
+                                                <div>
+                                                    <label>
+                                                        <input type="radio" name="can_forward" value="True"> Yes
+                                                    </label>
+                                                    <label>
+                                                        <input type="radio" name="can_forward" value="False" checked> No
+                                                    </label>
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label for="forward-select">Select User:</label>
+                                                    <select class="form-control" id="forward-select">
+                                                        {% for u in users %}
+                                                        {% if not u.id == 1 and not u.id == user.id %}
+                                                        <option value="{{ u.id }}">{{ u.first_name }} {{ u.last_name }}
+                                                            ({{ u.username }})</option>
+                                                        {% endif %}
+                                                        {% endfor %}
+                                                    </select>
+                                                </div>
+                                            </form>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary"
+                                                data-dismiss="modal">Close</button>
+                                            <button type="button" class="btn btn-primary"
+                                                id="forward-btn">Forward</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {% comment %} This code is for stop previous message to being stop {% endcomment %}
+                            <!-- ssForward Modal -->
+                            <div class="modal fade" id="ssforwardModal" tabindex="-1" role="dialog"
+                                aria-labelledby="ssforwardModalLabel" aria-hidden="true">
+                                <div class="modal-dialog" role="document">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="ssforwardModalLabel" style="color:black;">Manage Message Forwarding </h5>
+                                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                                <span aria-hidden="true">&times;</span>
+                                            </button>
+                                        </div>
+                                        <div class="modal-body" style="color: black;">
+                                            <form id="ssforward-form">
+                                                {% csrf_token %}
+
+                                                <label>will you allow to forward further?</label>
+                                                <div>
+                                                    <label>
+                                                        <input type="radio" name="ssforward" value="True"> Yes
+                                                    </label>
+                                                    <label>
+                                                        <input type="radio" name="ssforward" value="False" checked> No
+                                                    </label>
+                                                </div>
+
+                                            </form>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary"
+                                                data-dismiss="modal">Close</button>
+                                            <button type="button" class="btn btn-primary"
+                                                id="ssforward-btn">Ok</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+
+                            {% comment %} PDF Viewer Model {% endcomment %}
+
+                            <div class="modal fade" id="pdf-modal" tabindex="-1" role="dialog"
+                                aria-labelledby="pdf-modal-label" aria-hidden="true">
+                                <div class="modal-dialog modal-lg" role="document">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="pdf-modal-label">PDF Viewer</h5>
+                                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                                <span aria-hidden="true">&times;</span>
+                                            </button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div id="pdf-container"></div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary"
+                                                data-dismiss="modal">Close</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {% else %}
+                            <div class="p-2 w-100 d-flex justify-content-start">
+
+                                <div class="chat-bubble mr-2 mb-2 bg-light text-dark rounded" data-id="{{chat.id}}">
+                                    <p>{{chat.message}}</p>
+
+                                    {% if chat.image %}
+                                    <img data-enlargable src="{% static chat.image.url %}" alt="Image" height=100
+                                        width=100 />
+                                    {% endif %}
+
+                                    {% if chat.pdf_file %}
+                                    <div id="pdf-container">
+                                        <div class="embed-responsive embed-responsive-4by3"
+                                            onclick="setPdfUrl('{{ chat.pdf_file}}')">
+                                            <iframe class="embed-responsive-item" src="{% static chat.pdf_file %}"
+                                                style="pointer-events: none;"></iframe>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+
+
+                                    <div class=" d-flex justify-content-between"><small>Sender</small>
+                                        <small>{{chat.date_created|date:"M-d-Y H:i"}}</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {%if chat.can_forward == True%}
+                            <button class="btn btn-secondary forward-btn m-2" data-toggle="modal"
+                                data-target="#forwardModal"
+                                onclick="setChatIdToInputTag('{{ chat.id }}')">Forward</button>
+                            {% endif %}
+                            {% endif %} {% endfor %}
+                        </div>
+                        <div class="chat-box-form border-top p-2" style="height:20%;">
+                            <div class="w-100 h-80">
+                                <form action="" id="chat-submit" class="h-100 d-flex" enctype="multipart/form-data">
+                                    <div class="col-md-1">
+                                        <label for="uploadimagefile"><i class="fa-solid fa-image fa-2xl"></i></label>
+                                        <input type="file" id="uploadimagefile" name="image" class="form-control"
+                                            accept="image/jpeg, image/png" style="display:none;">
+                                    </div>
+                                    <div class="col-md-1">
+                                        <label for="uploadpdffile"><i class="fa-solid fa-file-pdf fa-2xl"></i></label>
+                                        <input type="file" id="uploadpdffile" name="pdf_file" class="form-control"
+                                            accept="application/pdf" style="display:none;">
+                                    </div>
+                                    <input type="hidden" name="user_from" value="{{ user.id }}">
+                                    <input type="hidden" name="user_to" value="{{ chat_id }}">
+                                    <input type="hidden" id="toggleValue" name="toggleValue" value="True">
+
+                                    <div class="col-md-8 h-100">
+                                        <textarea name="message" id="" class="h-60 w-100 form-control"
+                                            placeholder="Write your message here"></textarea>
+                                    </div>
+                                    <button
+                                        class="button btn btn-primary h-60 w-100 justify-content-center align-items-center d-flex">SEND</button>
+                                </form>
+                            </div>
+                        </div>
+
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+{% endblock %} {% block footer %}
+<script>
+    $(document).ready(function () {
+
+        var toggleValue = localStorage.getItem("toggleValue");
+        if (toggleValue === "true") {
+            $('#toggleValue').val("True");
+            $("#customSwitch1").prop("checked", true);
+        } else {
+            $('#toggleValue').val("False");
+            $("#customSwitch1").prop("checked", false);
+        }
+
+        // Update the value of the hidden input field on toggle
+        $("#customSwitch1").on("change", function () {
+            if ($(this).is(":checked")) {
+                $('#toggleValue').val("True");
+            } else {
+                $('#toggleValue').val("False");
+            }
+
+            // Store the value of the checkbox in localStorage
+            localStorage.setItem("toggleValue", $(this).is(":checked"));
+        });
+
+    });
+
+
+
+
+    $(function () {
+
+        if ($('.chat-bubble:last').length > 0) {
+            $('.chat-box').animate({
+                scrollTop: $('.chat-bubble:last').offset().top
+            }, 'fast')
+        }
+        $('#chat-submit').submit(function (e) {
+            e.preventDefault()
+            start_loader()
+
+            var formData = new FormData($(this)[0]); // Add this line to create a FormData object containing the form data
+            $.ajax({
+                headers: {
+                    "X-CSRFToken": '{{csrf_token}}'
+                },
+                url: "{% url 'chat-send' %}",
+                method: "POST",
+                data: formData, // Replace $(this).serialize() with formData
+                dataType: "json",
+                contentType: false, // Add these two lines to disable jQuery from setting the content type
+                processData: false, // of the request automatically
+                error: err => {
+                    console.log(err)
+                    alert('first error an error occured')
+                },
+                success: function (resp) {
+                    if (typeof resp == "object" && resp.status == 'success') {
+                        location.reload()
+                    } else {
+                        console.log(resp)
+                        alert('second error an error occured')
+                    }
+                }
+            })
+        })
+
+        chats_renew()
+        setInterval(() => {
+            chats_renew()
+        }, 5000)
+
+    })
+
+    function chats_renew() {
+        var last_id = 0
+        if ($('.chat-bubble').length > 0)
+            last_id = $('.chat-bubble:last').attr('data-id')
+        $.ajax({
+            headers: {
+                "X-CSRFToken": '{{csrf_token}}'
+            },
+            url: "{% url 'chat-renew' %}",
+            method: "POST",
+            data: {
+                last_id: last_id,
+                user_id: '{{user.id}}',
+                chat_id: '{{chat_id}}'
+            },
+            dataType: 'json',
+            error: err => {
+                console.log(err)
+                alert('an error occured')
+            },
+            success: function (resp) {
+                if (Object.keys(resp).length > 0) {
+                    Object.keys(resp).map(k => {
+
+                        if (resp[k].id.user_from == '{{user.id}}') {
+                            bubble = '<div class="p-2 w-100 d-flex justify-content-end">' +
+                                '<div class="chat-bubble ml-2 mb-2 bg-primary text-light rounded" data-id="' + resp[k].id + '">' +
+                                '<p>' + resp[k].message + '</p>';
+
+                            if (resp[k].image) {
+                                bubble += '<p>' + "Image received please refresh the page " + '</p>';
+                            }
+
+                            bubble += '<div class="d-flex justify-content-between"><small>You</small> <small>' + resp[k].date_created + '</small></div>' +
+                                '</div>' +
+                                '</div>';
+
+                        } else {
+                            bubble = '<div class="p-2 w-100 d-flex justify-content-start">' +
+                                '<div class="chat-bubble mr-2 mb-2 bg-light text-dark rounded"  data-id="' + resp[k].id + '">' +
+                                '<p>' + resp[k].message + '</p>';
+
+                            if (resp[k].image) {
+                                bubble += '<p>' + "Image received please refresh the page " + '</p>';
+                            }
+
+                            if (resp[k].pdf_file) {
+                                bubble += '<p>' + "<b>PDF Received</b> Please refresh the page " + '</p>';
+                            }
+
+                            bubble += '<div class="d-flex justify-content-between"><small>sender</small> <small>' + resp[k].date_created + '</small></div>' +
+                                '</div>' +
+                                '</div>';
+
+                        }
+                        // console.log(bubble)
+                        $('.chat-box').append(bubble)
+                        $('.chat-box').animate({
+                            scrollTop: $('.chat-bubble:last').offset().top * 1000
+                        }, 'fast')
+                    })
+                }
+            }
+        })
+    }
+
+
+    function setChatIdToInputTag(chatId) {
+        document.getElementById('chat-id-input-new').value = chatId;
+    }
+
+
+
+    function setPdfUrl(pdfURL) {
+        document.getElementById('pdf-url').value = pdfURL;
+        newURL = pdfURL;
+        //loadPDF(newURL);
+        openPdfModal(newURL)
+    }
+
+    //  {% comment %} Forward Message Code {% endcomment %}
+    $(document).ready(function () {
+        // Handle forwarding a message
+        $('#forward-btn').click(function (e) {
+            e.preventDefault();
+            var selectVal = $('#forward-select').val();
+            var chatId = document.getElementById('chat-id-input-new').value;
+            var canForward = $("input[name='can_forward']:checked").val();
+            console.log(chatId)
+            var csrf_token = $('input[name="csrfmiddlewaretoken"]').val();
+            $.ajax({
+                url: "{% url 'chat-forward' %}",
+                type: "POST",
+                data: {
+                    user_from: "{{ user.id }}",
+                    user_to: selectVal,
+                    message: "{{ chat.message }}",
+                    chat_id: chatId,
+                    forwardMessage: "True",
+                    agree: canForward,
+                    csrfmiddlewaretoken: csrf_token,
+                },
+                success: function (response) {
+                    if (response.status === 'success') {
+                        alert('Message forwarded successfully!');
+                        $('#forwardModal').modal('hide');
+                    } else {
+                        alert('Error forwarding message.');
+                    }
+                },
+                error: function () {
+                    alert('Error forwarding message.');
+                }
+            });
+        });
+    });
+
+
+ //  {% comment %} Forward Message Code {% endcomment %}
+ $(document).ready(function () {
+    // Handle forwarding a message
+    $('#ssforward-btn').click(function (e) {
+        e.preventDefault();
+    
+        var chatId = document.getElementById('chat-id-input-new').value;
+        var canForward = $("input[name='ssforward']:checked").val();
+        console.log(chatId)
+        var csrf_token = $('input[name="csrfmiddlewaretoken"]').val();
+        $.ajax({
+            url: "{% url 'chat-ssforward' %}",
+            type: "POST",
+            data: {
+                user_from: "{{ user.id }}",
+                message: "{{ chat.message }}",
+                chat_id: chatId,
+                agree: canForward,
+                csrfmiddlewaretoken: csrf_token,
+            },
+            success: function (response) {
+                if (response.status === 'success') {
+                    alert('Message forwarded successfully!');
+                    $('#forwardModal').modal('hide');
+                } else {
+                    alert('Error forwarding message.');
+                }
+            },
+            error: function () {
+                alert('Error forwarding message.');
+            }
+        });
+    });
+});
+
+
+
+
+
+
+    //    {% comment %} Image Code {% endcomment %}
+    $('img[data-enlargable]').addClass('img-enlargable').click(function () {
+        var src = $(this).attr('src');
+        $('<div>').css({
+            background: 'RGBA(0,0,0,.5) url(' + src + ') no-repeat center',
+            backgroundSize: 'contain',
+            width: '100%', height: '100%',
+            position: 'fixed',
+            zIndex: '10000',
+            top: '0', left: '0',
+            cursor: 'zoom-out'
+        }).click(function () {
+            $(this).remove();
+        }).appendTo('body');
+    });
+
+
+    // {% comment %} PDF Code {% endcomment %}
+
+    // 
+
+    function openPdfModal(url) {
+        const pdfContainer = document.querySelector("#pdf-container");
+        pdfContainer.innerHTML = "";
+
+        const scale = 1.0;
+        const options = {
+            fullScreen: true,
+            disablePrint: true,
+            enableWebGL: true,
+            showHandTool: true
+        };
+
+        pdfjsLib.getDocument("http://127.0.0.1:8000/static/" + url).promise.then(pdf => {
+            for (let i = 1; i <= pdf.numPages; i++) {
+                pdf.getPage(i).then(page => {
+                    const viewport = page.getViewport({ scale });
+                    const canvas = document.createElement("canvas");
+                    canvas.style.display = "block";
+                    canvas.style.margin = "0 auto";
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+                    pdfContainer.appendChild(canvas);
+
+                    page.render({ canvasContext: canvas.getContext("2d"), viewport });
+                });
+            }
+        }).catch(error => {
+            console.log(error);
+        });
+
+        $("#pdf-modal").modal("show");
+    }
+
+
+
+
+</script>
+
+
+
+{% endblock %}
